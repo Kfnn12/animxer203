@@ -92,6 +92,7 @@ app.get('/api/recent', async (req, res) => {
 app.get('/api/lists', async (req, res) => {
     try {
         const type = req.query.type as string;
+        const page = req.query.page || 1;
         let url = `${BASE_URL}/filter`;
         if (type === 'new-release') {
             url += '?sort=latest-updated';
@@ -100,7 +101,19 @@ app.get('/api/lists', async (req, res) => {
         } else if (type === 'just-completed') {
             url += '?status[]=finished-airing&sort=latest-updated';
         } else if (type === 'estimated-schedule') {
-            url += '?status[]=not-yet-aired';
+            url += '?status[]=currently-airing&sort=latest-updated';
+        } else if (type === 'az-list') {
+            const letter = req.query.letter as string;
+            url = `${BASE_URL}/az-list`;
+            if (letter && letter !== 'All') {
+                url += `/${letter === 'Other' ? 'other' : letter}`;
+            }
+        }
+        
+        if (url.includes('?')) {
+            url += `&page=${page}`;
+        } else {
+            url += `?page=${page}`;
         }
 
         const response = await axios.get(url, { headers });

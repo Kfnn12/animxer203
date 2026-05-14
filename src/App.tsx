@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Search, Play, Info } from "lucide-react";
-import { motion } from "motion/react";
+import { Search, Play, Info, Calendar } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
 export default function App() {
   const [query, setQuery] = useState("");
@@ -17,6 +17,37 @@ export default function App() {
   const [servers, setServers] = useState([]);
   const [selectedServer, setSelectedServer] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
+  const [viewListMode, setViewListMode] = useState<{type: string, title: string, letter?: string} | null>(null);
+  const [viewListResults, setViewListResults] = useState([]);
+  const [viewListPage, setViewListPage] = useState(1);
+  const [viewListLoading, setViewListLoading] = useState(false);
+  
+  const fetchViewList = async (type: string, title: string, page = 1, letter?: string) => {
+    setViewListMode({ type, title, letter });
+    setViewListPage(page);
+    setViewListLoading(true);
+    if (page === 1) {
+        setViewListResults([]); // Clear previous results on initial load
+    }
+    try {
+      let route = `/api/lists?type=${type}&page=${page}`;
+      if (letter) route += `&letter=${encodeURIComponent(letter)}`;
+      const res = await fetch(route);
+      const data = await res.json();
+      if (data.results) {
+        if (page === 1) {
+             setViewListResults(data.results);
+        } else {
+             setViewListResults(prev => [...prev, ...data.results]);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setViewListLoading(false);
+    }
+  };
+
   const [watchHistory, setWatchHistory] = useState<Record<string, any>>(() => {
     try {
       const stored = localStorage.getItem('animeWatchHistory');
@@ -384,6 +415,55 @@ export default function App() {
               </div>
             )}
           </motion.div>
+        ) : viewListMode ? (
+          <div className="flex flex-col gap-6">
+             <div className="flex items-center justify-between mb-2">
+                 <h2 className="text-2xl font-bold text-white capitalize">{viewListMode.title}</h2>
+                 <button 
+                   onClick={() => setViewListMode(null)}
+                   className="text-sm font-medium bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-colors"
+                 >
+                   Back to Home
+                 </button>
+             </div>
+
+             {viewListMode.type === 'az-list' && (
+                 <div className="flex flex-wrap gap-2 mb-4">
+                    {['All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0-9', 'Other'].map((letter) => (
+                      <button
+                        key={letter}
+                        onClick={() => fetchViewList('az-list', `A-Z List: ${letter}`, 1, letter)}
+                        className={`${['All', 'Other'].includes(letter) ? 'px-4' : 'w-10'} h-10 flex items-center justify-center ${viewListMode.letter === letter ? 'bg-indigo-500 text-white' : 'bg-white/5 text-white/70'} hover:bg-indigo-400 hover:text-white rounded-lg text-sm font-bold transition-all border ${viewListMode.letter === letter ? 'border-indigo-400' : 'border-white/10'} hover:border-indigo-300`}
+                      >
+                        {letter === 'Other' ? 'Other' : letter}
+                      </button>
+                    ))}
+                 </div>
+             )}
+             
+             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+               {viewListResults.map((item, i) => (
+                 <AnimeCard key={i} anime={item} onClick={() => fetchAnimeInfo(item.id)} />
+               ))}
+             </div>
+             
+             {viewListLoading && (
+               <div className="flex justify-center py-6">
+                 <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+               </div>
+             )}
+             
+             {!viewListLoading && viewListResults.length > 0 && (
+               <div className="flex justify-center mt-6">
+                 <button
+                   onClick={() => fetchViewList(viewListMode.type, viewListMode.title, viewListPage + 1, viewListMode.letter)}
+                   className="bg-white/10 hover:bg-white/20 border border-white/20 text-white py-3 px-8 rounded-xl font-bold transition-colors"
+                 >
+                   Load More
+                 </button>
+               </div>
+             )}
+          </div>
         ) : (
           <>
             {(results.length > 0 || loading) && (
@@ -408,12 +488,17 @@ export default function App() {
 
             {!query && (
               <div className="flex flex-col gap-12">
+                <HeroSlider animeList={newReleases} onSelect={fetchAnimeInfo} />
+                
                 {newReleases.length > 0 && (
                   <section>
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                      <Play className="w-5 h-5 text-emerald-400" />
-                      New Releases
-                    </h2>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-bold flex items-center gap-2">
+                        <Play className="w-5 h-5 text-emerald-400" />
+                        New Releases
+                      </h2>
+                      <button onClick={() => fetchViewList('new-release', 'New Releases')} className="text-sm font-medium hover:text-emerald-400 transition-colors">View All</button>
+                    </div>
                     <div className="flex overflow-x-auto pb-6 gap-6 scrollbar-hide snap-x">
                       {newReleases.map((item, i) => (
                         <div key={i} className="flex-none w-40 sm:w-48 md:w-56 snap-start">
@@ -426,10 +511,13 @@ export default function App() {
                 
                 {newAdded.length > 0 && (
                   <section>
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                      <Play className="w-5 h-5 text-blue-400" />
-                      Newly Added
-                    </h2>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-bold flex items-center gap-2">
+                        <Play className="w-5 h-5 text-blue-400" />
+                        Newly Added
+                      </h2>
+                      <button onClick={() => fetchViewList('new-added', 'Newly Added')} className="text-sm font-medium hover:text-blue-400 transition-colors">View All</button>
+                    </div>
                     <div className="flex overflow-x-auto pb-6 gap-6 scrollbar-hide snap-x">
                       {newAdded.map((item, i) => (
                         <div key={i} className="flex-none w-40 sm:w-48 md:w-56 snap-start">
@@ -442,10 +530,13 @@ export default function App() {
                 
                 {justCompleted.length > 0 && (
                   <section>
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                      <Play className="w-5 h-5 text-purple-400" />
-                      Just Completed
-                    </h2>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-bold flex items-center gap-2">
+                        <Play className="w-5 h-5 text-purple-400" />
+                        Just Completed
+                      </h2>
+                      <button onClick={() => fetchViewList('just-completed', 'Just Completed')} className="text-sm font-medium hover:text-purple-400 transition-colors">View All</button>
+                    </div>
                     <div className="flex overflow-x-auto pb-6 gap-6 scrollbar-hide snap-x">
                       {justCompleted.map((item, i) => (
                         <div key={i} className="flex-none w-40 sm:w-48 md:w-56 snap-start">
@@ -458,10 +549,13 @@ export default function App() {
 
                 {estimatedSchedule.length > 0 && (
                   <section>
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                      <Play className="w-5 h-5 text-pink-400" />
-                      Estimated Schedule
-                    </h2>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-bold flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-pink-400" />
+                        Estimated Schedule
+                      </h2>
+                      <button onClick={() => fetchViewList('estimated-schedule', 'Estimated Schedule')} className="text-sm font-medium hover:text-pink-400 transition-colors">View All</button>
+                    </div>
                     <div className="flex overflow-x-auto pb-6 gap-6 scrollbar-hide snap-x">
                       {estimatedSchedule.map((item, i) => (
                         <div key={i} className="flex-none w-40 sm:w-48 md:w-56 snap-start">
@@ -471,6 +565,24 @@ export default function App() {
                     </div>
                   </section>
                 )}
+
+                <section>
+                  <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <Search className="w-5 h-5 text-indigo-400" />
+                    A-Z List
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    {['All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0-9', 'Other'].map((letter) => (
+                      <button
+                        key={letter}
+                        onClick={() => fetchViewList('az-list', `A-Z List: ${letter}`, 1, letter)}
+                        className={`${['All', 'Other'].includes(letter) ? 'px-4' : 'w-10'} h-10 flex items-center justify-center bg-white/5 hover:bg-indigo-500 hover:text-white text-white/70 rounded-lg text-sm font-bold transition-all border border-white/10 hover:border-indigo-400`}
+                      >
+                        {letter === 'Other' ? 'Other' : letter}
+                      </button>
+                    ))}
+                  </div>
+                </section>
               </div>
             )}
           </>
@@ -522,6 +634,82 @@ export default function App() {
           <p className="text-white/40">&copy; {new Date().getFullYear()} ANIMXER. All rights reserved.</p>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function HeroSlider({ animeList, onSelect }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    if (animeList.length === 0) return;
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % Math.min(animeList.length, 5));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [animeList.length]);
+
+  if (animeList.length === 0) return null;
+
+  const featuredList = animeList.slice(0, 5);
+  const currentAnime = featuredList[currentIndex];
+
+  return (
+    <div className="relative w-full aspect-[16/9] md:aspect-[21/9] lg:aspect-[3/1] rounded-2xl overflow-hidden mb-2 shadow-2xl glass-card border border-white/5 mx-auto group">
+      <AnimatePresence mode="wait">
+        <motion.div
+           key={currentIndex}
+           initial={{ opacity: 0 }}
+           animate={{ opacity: 1 }}
+           exit={{ opacity: 0 }}
+           transition={{ duration: 0.8 }}
+           className="absolute inset-0"
+        >
+           <img
+             src={currentAnime.image}
+             alt={currentAnime.title}
+             className="w-full h-full object-cover scale-105"
+           />
+           <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent" />
+           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-80" />
+           
+           <div className="absolute bottom-0 left-0 p-6 md:p-12 w-full md:w-2/3">
+             {currentAnime.type && (
+               <span className="inline-block px-3 py-1 bg-emerald-500/20 text-emerald-400 backdrop-blur-md rounded border border-emerald-500/30 text-xs font-bold uppercase tracking-wider mb-4">
+                 {currentAnime.type}
+               </span>
+             )}
+             <motion.h2 
+               initial={{ y: 20, opacity: 0 }}
+               animate={{ y: 0, opacity: 1 }}
+               transition={{ delay: 0.2 }}
+               className="text-3xl md:text-5xl font-extrabold text-white mb-4 drop-shadow-lg line-clamp-2"
+             >
+               {currentAnime.title}
+             </motion.h2>
+             
+             <motion.button 
+               initial={{ y: 20, opacity: 0 }}
+               animate={{ y: 0, opacity: 1 }}
+               transition={{ delay: 0.3 }}
+               onClick={() => onSelect(currentAnime.id)}
+               className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-black py-3 px-8 rounded-xl font-bold transition-colors shadow-xl shadow-emerald-500/20"
+             >
+               <Play className="w-5 h-5 fill-current" /> Watch Now
+             </motion.button>
+           </div>
+        </motion.div>
+      </AnimatePresence>
+
+      <div className="absolute bottom-4 right-4 md:bottom-6 md:right-6 flex gap-2 z-10">
+        {featuredList.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setCurrentIndex(i)}
+            className={`h-2 rounded-full transition-all duration-300 ${i === currentIndex ? 'w-8 bg-emerald-400' : 'w-2 bg-white/30 hover:bg-white/50'}`}
+          />
+        ))}
+      </div>
     </div>
   );
 }
