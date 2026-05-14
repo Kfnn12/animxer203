@@ -1,6 +1,24 @@
 import { useState, useEffect } from "react";
 import { Search, Play, Info, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import Comments from "./components/Comments";
+
+const genresList = [
+    { title: "Action", id: "action" }, { title: "Adventure", id: "adventure" }, { title: "Cars", id: "cars" },
+    { title: "Comedy", id: "comedy" }, { title: "Dementia", id: "dementia" }, { title: "Demons", id: "demons" },
+    { title: "Drama", id: "drama" }, { title: "Ecchi", id: "ecchi" }, { title: "Fantasy", id: "fantasy" },
+    { title: "Game", id: "game" }, { title: "Harem", id: "harem" }, { title: "Historical", id: "historical" },
+    { title: "Horror", id: "horror" }, { title: "Isekai", id: "isekai" }, { title: "Josei", id: "josei" },
+    { title: "Kids", id: "kids" }, { title: "Magic", id: "magic" }, { title: "Martial Arts", id: "martial-arts" },
+    { title: "Mecha", id: "mecha" }, { title: "Military", id: "military" }, { title: "Music", id: "music" },
+    { title: "Mystery", id: "mystery" }, { title: "Parody", id: "parody" }, { title: "Police", id: "police" },
+    { title: "Psychological", id: "psychological" }, { title: "Romance", id: "romance" }, { title: "Samurai", id: "samurai" },
+    { title: "School", id: "school" }, { title: "Sci-Fi", id: "sci-fi" }, { title: "Seinen", id: "seinen" },
+    { title: "Shoujo", id: "shoujo" }, { title: "Shoujo Ai", id: "shoujo-ai" }, { title: "Shounen", id: "shounen" },
+    { title: "Shounen Ai", id: "shounen-ai" }, { title: "Slice of Life", id: "slice-of-life" }, { title: "Space", id: "space" },
+    { title: "Sports", id: "sports" }, { title: "Super Power", id: "super-power" }, { title: "Supernatural", id: "supernatural" },
+    { title: "Thriller", id: "thriller" }, { title: "Vampire", id: "vampire" }
+];
 
 export default function App() {
   const [query, setQuery] = useState("");
@@ -20,13 +38,16 @@ export default function App() {
   const [servers, setServers] = useState([]);
   const [selectedServer, setSelectedServer] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
-  const [viewListMode, setViewListMode] = useState<{type: string, title: string, letter?: string} | null>(null);
+  const [viewListMode, setViewListMode] = useState<{type: string, title: string, param?: string} | null>(null);
+  const [staticPage, setStaticPage] = useState<string | null>(null);
   const [viewListResults, setViewListResults] = useState([]);
   const [viewListPage, setViewListPage] = useState(1);
   const [viewListLoading, setViewListLoading] = useState(false);
   
-  const fetchViewList = async (type: string, title: string, page = 1, letter?: string) => {
-    setViewListMode({ type, title, letter });
+  const fetchViewList = async (type: string, title: string, page = 1, param?: string) => {
+    setStaticPage(null);
+    setSelectedAnime(null);
+    setViewListMode({ type, title, param });
     setViewListPage(page);
     setViewListLoading(true);
     if (page === 1) {
@@ -34,7 +55,10 @@ export default function App() {
     }
     try {
       let route = `/api/lists?type=${type}&page=${page}`;
-      if (letter) route += `&letter=${encodeURIComponent(letter)}`;
+      if (param) {
+         if (type === 'az-list') route += `&letter=${encodeURIComponent(param)}`;
+         else if (type === 'genre') route += `&genre=${encodeURIComponent(param)}`;
+      }
       const res = await fetch(route);
       const data = await res.json();
       if (data.results) {
@@ -160,6 +184,7 @@ export default function App() {
     setSelectedEpisode(null);
     setVideoUrl(null);
     setServers([]);
+    setStaticPage(null);
     setSelectedAnime(id);
     try {
       const res = await fetch(`/api/info?id=${encodeURIComponent(id)}`);
@@ -265,7 +290,38 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {selectedAnime ? (
+        {staticPage ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-8">
+            <button
+              onClick={() => setStaticPage(null)}
+              className="mb-6 text-emerald-400 hover:text-emerald-300 text-sm flex items-center gap-2"
+            >
+              &larr; Back to Home
+            </button>
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
+              <h1 className="text-3xl font-bold text-white mb-6 bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">{staticPage}</h1>
+              <div className="space-y-6 text-white/80 leading-relaxed">
+                <p>
+                  This is a placeholder for the {staticPage} page. Since this is a demo application,
+                  the full legal text is not provided here.
+                </p>
+                <p>
+                  In a real-world scenario, this page would outline the full terms, conditions, 
+                  and policies relevant to the users of this platform. It would cover areas such as:
+                </p>
+                <ul className="list-disc pl-6 space-y-2 text-white/70">
+                  <li>User responsibilities and acceptable use.</li>
+                  <li>Data collection, storage, and processing practices (Privacy Policy).</li>
+                  <li>Copyright and intellectual property rules (DMCA).</li>
+                  <li>Dispute resolution and limitation of liability.</li>
+                </ul>
+                <p className="pt-4 border-t border-white/10 text-sm text-white/50">
+                  Last updated: {new Date().toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        ) : selectedAnime ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <button
               onClick={() => { setSelectedAnime(null); setSelectedEpisode(null); }}
@@ -358,7 +414,11 @@ export default function App() {
                     </div>
                   )}
                   
-                  <div className="mb-6">
+                  {selectedEpisode && (
+                    <Comments episodeId={`${selectedAnime}-${selectedEpisode.num || selectedEpisode.id || 'unknown'}`} />
+                  )}
+                  
+                  <div className="mb-6 mt-8">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                       <h3 className="font-semibold text-lg">Watch Episodes</h3>
                       {animeInfo.episodes && animeInfo.episodes.length > 0 && (
@@ -491,7 +551,7 @@ export default function App() {
                     className="flex flex-wrap gap-2 mb-6 p-4 rounded-2xl bg-white/5 border border-white/10"
                  >
                     {['All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0-9', 'Other'].map((letter) => {
-                      const isActive = viewListMode.letter === letter;
+                      const isActive = viewListMode.param === letter;
                       return (
                       <motion.button
                         key={letter}
@@ -508,6 +568,35 @@ export default function App() {
                           />
                         )}
                         <span className="relative z-10">{letter === 'Other' ? 'Other' : letter}</span>
+                      </motion.button>
+                    )})}
+                 </motion.div>
+             )}
+             
+             {viewListMode.type === 'genre' && (
+                 <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-wrap gap-2 mb-6 p-4 rounded-2xl bg-white/5 border border-white/10"
+                 >
+                    {genresList.map((genre) => {
+                      const isActive = viewListMode.param === genre.id;
+                      return (
+                      <motion.button
+                        key={genre.id}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => fetchViewList('genre', `Genre: ${genre.title}`, 1, genre.id)}
+                        className={`relative px-4 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-colors ${isActive ? 'text-white' : 'text-white/60 bg-white/5 hover:bg-white/10 hover:text-white'}`}
+                      >
+                        {isActive && (
+                          <motion.div
+                            layoutId="activeGenre"
+                            className="absolute inset-0 bg-emerald-500 rounded-xl"
+                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                          />
+                        )}
+                        <span className="relative z-10">{genre.title}</span>
                       </motion.button>
                     )})}
                  </motion.div>
@@ -541,7 +630,7 @@ export default function App() {
              {!viewListLoading && viewListResults.length > 0 && (
                <div className="flex justify-center mt-6">
                  <button
-                   onClick={() => fetchViewList(viewListMode.type, viewListMode.title, viewListPage + 1, viewListMode.letter)}
+                   onClick={() => fetchViewList(viewListMode.type, viewListMode.title, viewListPage + 1, viewListMode.param)}
                    className="bg-white/10 hover:bg-white/20 border border-white/20 text-white py-3 px-8 rounded-xl font-bold transition-colors"
                  >
                    Load More
@@ -711,6 +800,26 @@ export default function App() {
                     ))}
                   </div>
                 </section>
+                
+                <section>
+                  <h2 className="text-xl font-bold mb-6 flex items-center gap-2 mt-12">
+                    <Search className="w-5 h-5 text-emerald-400" />
+                    Browse by Genre
+                  </h2>
+                  <div className="flex flex-wrap gap-2 p-4 rounded-2xl bg-white/5 border border-white/10">
+                    {genresList.map((genre) => (
+                      <motion.button
+                        key={genre.id}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => fetchViewList('genre', `Genre: ${genre.title}`, 1, genre.id)}
+                        className={`relative px-4 h-10 flex items-center justify-center bg-white/5 text-white/60 hover:text-white hover:bg-emerald-500 rounded-xl text-sm font-bold transition-colors`}
+                      >
+                        <span className="relative z-10">{genre.title}</span>
+                      </motion.button>
+                    ))}
+                  </div>
+                </section>
               </div>
             )}
           </>
@@ -731,27 +840,27 @@ export default function App() {
           <div>
             <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Navigation</h3>
             <ul className="space-y-2 text-sm flex flex-col">
-              <a href="#" className="hover:text-emerald-400 transition-colors duration-300">Home</a>
-              <a href="#" className="hover:text-emerald-400 transition-colors duration-300">Trending Anime</a>
-              <a href="#" className="hover:text-emerald-400 transition-colors duration-300">Recently Added</a>
-              <a href="#" className="hover:text-emerald-400 transition-colors duration-300">Movies & OVAs</a>
+              <button onClick={() => { setSelectedAnime(null); setViewListMode(null); setStaticPage(null); window.scrollTo(0, 0); }} className="text-left hover:text-emerald-400 transition-colors duration-300">Home</button>
+              <button onClick={() => { fetchViewList('new-release', 'Trending Anime'); window.scrollTo(0, 0); }} className="text-left hover:text-emerald-400 transition-colors duration-300">Trending Anime</button>
+              <button onClick={() => { fetchViewList('new-added', 'Recently Added'); window.scrollTo(0, 0); }} className="text-left hover:text-emerald-400 transition-colors duration-300">Recently Added</button>
+              <button onClick={() => { fetchViewList('just-completed', 'Movies & OVAs'); window.scrollTo(0, 0); }} className="text-left hover:text-emerald-400 transition-colors duration-300">Movies & OVAs</button>
             </ul>
           </div>
           <div>
             <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Legal</h3>
             <ul className="space-y-2 text-sm flex flex-col">
-              <a href="#" className="hover:text-emerald-400 transition-colors duration-300">Terms of Service</a>
-              <a href="#" className="hover:text-emerald-400 transition-colors duration-300">Privacy Policy</a>
-              <a href="#" className="hover:text-emerald-400 transition-colors duration-300">DMCA Notice</a>
-              <a href="#" className="hover:text-emerald-400 transition-colors duration-300">Contact Us</a>
+              <button onClick={(e) => { e.preventDefault(); setStaticPage('Terms of Service'); window.scrollTo(0, 0); }} className="text-left hover:text-emerald-400 transition-colors duration-300">Terms of Service</button>
+              <button onClick={(e) => { e.preventDefault(); setStaticPage('Privacy Policy'); window.scrollTo(0, 0); }} className="text-left hover:text-emerald-400 transition-colors duration-300">Privacy Policy</button>
+              <button onClick={(e) => { e.preventDefault(); setStaticPage('DMCA Notice'); window.scrollTo(0, 0); }} className="text-left hover:text-emerald-400 transition-colors duration-300">DMCA Notice</button>
+              <button onClick={(e) => { e.preventDefault(); setStaticPage('Contact Us'); window.scrollTo(0, 0); }} className="text-left hover:text-emerald-400 transition-colors duration-300">Contact Us</button>
             </ul>
           </div>
           <div>
             <h3 className="text-white font-semibold mb-4 text-sm uppercase tracking-wider">Connect</h3>
             <ul className="space-y-2 text-sm flex flex-col">
-              <a href="#" className="hover:text-emerald-400 transition-colors duration-300">Discord Community</a>
-              <a href="#" className="hover:text-emerald-400 transition-colors duration-300">Twitter Updates</a>
-              <a href="#" className="hover:text-emerald-400 transition-colors duration-300">Reddit Discussions</a>
+              <a href="https://discord.com" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition-colors duration-300">Discord Community</a>
+              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition-colors duration-300">Twitter Updates</a>
+              <a href="https://reddit.com" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition-colors duration-300">Reddit Discussions</a>
             </ul>
           </div>
         </div>

@@ -135,6 +135,9 @@ app.get('/api/lists', async (req, res) => {
             if (letter && letter !== 'All') {
                 url += `/${letter === 'Other' ? 'other' : letter}`;
             }
+        } else if (type === 'genre') {
+            const genre = req.query.genre as string;
+            url = `${BASE_URL}/genre/${genre}`;
         }
         
         if (url.includes('?')) {
