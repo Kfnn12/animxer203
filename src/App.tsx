@@ -9,7 +9,10 @@ export default function App() {
   const [newReleases, setNewReleases] = useState([]);
   const [newAdded, setNewAdded] = useState([]);
   const [justCompleted, setJustCompleted] = useState([]);
-  const [estimatedSchedule, setEstimatedSchedule] = useState([]);
+  const [weeklySchedule, setWeeklySchedule] = useState([]);
+  const [scheduleDay, setScheduleDay] = useState('');
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState(false);
   
   const [selectedAnime, setSelectedAnime] = useState(null);
   const [animeInfo, setAnimeInfo] = useState(null);
@@ -76,11 +79,28 @@ export default function App() {
       .then((data) => {
         if (data.results) setJustCompleted(data.results);
       });
-
-    fetch("/api/lists?type=estimated-schedule")
-      .then((res) => res.json())
+      
+    setScheduleLoading(true);
+    setScheduleError(false);
+    fetch("/api/schedule")
+      .then((res) => {
+          if (!res.ok) throw new Error("Failed to fetch schedule");
+          return res.json();
+      })
       .then((data) => {
-        if (data.results) setEstimatedSchedule(data.results);
+         if (data.data) {
+             setWeeklySchedule(data.data);
+             const d = new Date();
+             const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+             setScheduleDay(days[d.getDay()]);
+         }
+      })
+      .catch((e) => {
+          console.error(e);
+          setScheduleError(true);
+      })
+      .finally(() => {
+          setScheduleLoading(false);
       });
   }, []);
 
@@ -94,6 +114,43 @@ export default function App() {
       setResults(data.results || []);
     } catch (err) {
       console.error(err);
+    }
+    setLoading(false);
+  };
+
+  const fetchScheduleDay = async (day: string) => {
+    setScheduleDay(day);
+    setWeeklySchedule([]);
+    setScheduleLoading(true);
+    setScheduleError(false);
+    try {
+        const res = await fetch(`/api/schedule?day=${day}`);
+        if (!res.ok) throw new Error("Failed to fetch schedule");
+        const data = await res.json();
+        if (data.data) {
+           setWeeklySchedule(data.data);
+        }
+    } catch (e) {
+        console.error(e);
+        setScheduleError(true);
+    } finally {
+        setScheduleLoading(false);
+    }
+  };
+
+  const fetchAnimeFromSchedule = async (title: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/search?keyword=${encodeURIComponent(title)}`);
+      const data = await res.json();
+      if (data.results && data.results.length > 0) {
+          fetchAnimeInfo(data.results[0].id);
+      } else {
+          alert("Could not find this anime on our servers.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error searching for anime.");
     }
     setLoading(false);
   };
@@ -428,24 +485,52 @@ export default function App() {
              </div>
 
              {viewListMode.type === 'az-list' && (
-                 <div className="flex flex-wrap gap-2 mb-4">
-                    {['All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0-9', 'Other'].map((letter) => (
-                      <button
+                 <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-wrap gap-2 mb-6 p-4 rounded-2xl bg-white/5 border border-white/10"
+                 >
+                    {['All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0-9', 'Other'].map((letter) => {
+                      const isActive = viewListMode.letter === letter;
+                      return (
+                      <motion.button
                         key={letter}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => fetchViewList('az-list', `A-Z List: ${letter}`, 1, letter)}
-                        className={`${['All', 'Other'].includes(letter) ? 'px-4' : 'w-10'} h-10 flex items-center justify-center ${viewListMode.letter === letter ? 'bg-indigo-500 text-white' : 'bg-white/5 text-white/70'} hover:bg-indigo-400 hover:text-white rounded-lg text-sm font-bold transition-all border ${viewListMode.letter === letter ? 'border-indigo-400' : 'border-white/10'} hover:border-indigo-300`}
+                        className={`relative ${['All', 'Other'].includes(letter) ? 'px-5' : 'w-10'} h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-colors ${isActive ? 'text-white' : 'text-white/60 bg-white/5 hover:bg-white/10 hover:text-white'}`}
                       >
-                        {letter === 'Other' ? 'Other' : letter}
-                      </button>
-                    ))}
-                 </div>
+                        {isActive && (
+                          <motion.div
+                            layoutId="activeLetter"
+                            className="absolute inset-0 bg-indigo-500 rounded-xl"
+                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                          />
+                        )}
+                        <span className="relative z-10">{letter === 'Other' ? 'Other' : letter}</span>
+                      </motion.button>
+                    )})}
+                 </motion.div>
              )}
              
-             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+             <motion.div 
+                 layout
+                 className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6"
+             >
+               <AnimatePresence mode="popLayout">
                {viewListResults.map((item, i) => (
-                 <AnimeCard key={i} anime={item} onClick={() => fetchAnimeInfo(item.id)} />
+                 <motion.div
+                   key={`${item.id}-${i}`}
+                   initial={{ opacity: 0, scale: 0.9 }}
+                   animate={{ opacity: 1, scale: 1 }}
+                   exit={{ opacity: 0, scale: 0.9 }}
+                   transition={{ duration: 0.2 }}
+                 >
+                   <AnimeCard anime={item} onClick={() => fetchAnimeInfo(item.id)} />
+                 </motion.div>
                ))}
-             </div>
+               </AnimatePresence>
+             </motion.div>
              
              {viewListLoading && (
                <div className="flex justify-center py-6">
@@ -547,39 +632,82 @@ export default function App() {
                   </section>
                 )}
 
-                {estimatedSchedule.length > 0 && (
-                  <section>
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-bold flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-pink-400" />
-                        Estimated Schedule
-                      </h2>
-                      <button onClick={() => fetchViewList('estimated-schedule', 'Estimated Schedule')} className="text-sm font-medium hover:text-pink-400 transition-colors">View All</button>
+                <section>
+                  <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-indigo-400" />
+                    Weekly Anime Schedule
+                  </h2>
+                  <div className="flex flex-wrap gap-2 mb-6 p-2 rounded-2xl bg-white/5 border border-white/10">
+                     {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
+                        <button
+                          key={day}
+                          onClick={() => fetchScheduleDay(day)}
+                          className={`flex-1 text-center py-2 px-3 rounded-xl text-sm font-bold capitalize transition-colors ${scheduleDay === day ? 'bg-indigo-500 text-white' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                        >
+                          {day.substring(0, 3)}
+                        </button>
+                     ))}
+                  </div>
+                  
+                  {scheduleLoading ? (
+                    <div className="flex justify-center py-10">
+                       <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
                     </div>
+                  ) : scheduleError ? (
+                    <div className="flex justify-center py-10 text-center text-red-400 font-medium">
+                       Failed to load the schedule. Please try again later.
+                    </div>
+                  ) : weeklySchedule.length === 0 ? (
+                    <div className="flex justify-center py-10 text-center text-white/50 font-medium whitespace-pre-wrap">
+                       No schedule available for this day.
+                    </div>
+                  ) : (
                     <div className="flex overflow-x-auto pb-6 gap-6 scrollbar-hide snap-x">
-                      {estimatedSchedule.map((item, i) => (
-                        <div key={i} className="flex-none w-40 sm:w-48 md:w-56 snap-start">
-                           <AnimeCard anime={item} onClick={() => fetchAnimeInfo(item.id)} />
-                        </div>
-                      ))}
+                        {[...weeklySchedule].sort((a: any, b: any) => {
+                            const timeA = a.broadcast?.time || '23:59';
+                            const timeB = b.broadcast?.time || '23:59';
+                            return timeA.localeCompare(timeB);
+                        }).map((item: any, i: number) => (
+                           <motion.div 
+                              key={`${item.mal_id}-${i}`} 
+                              className="flex-none w-48 sm:w-56 snap-start cursor-pointer group"
+                              onClick={() => fetchAnimeFromSchedule(item.title)}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                           >
+                              <div className="relative aspect-[3/4] rounded-xl overflow-hidden mb-3 bg-white/5 border border-white/10">
+                                 <img src={item.images?.jpg?.large_image_url || 'https://via.placeholder.com/225x318.jpg?text=No+Image'} alt={item.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80" />
+                                 <div className="absolute bottom-2 left-2 right-2">
+                                    <div className="text-xs bg-indigo-500/80 backdrop-blur-sm text-white px-2 py-1 rounded inline-block font-bold mb-1">
+                                       {item.broadcast?.time || 'Unknown'} JST
+                                    </div>
+                                 </div>
+                              </div>
+                              <h3 className="font-bold text-white line-clamp-2 group-hover:text-indigo-400 transition-colors">{item.title}</h3>
+                              <p className="text-xs text-white/50 mt-1">{item.broadcast?.string || ''}</p>
+                           </motion.div>
+                        ))}
                     </div>
-                  </section>
-                )}
+                  )}
+                </section>
 
                 <section>
                   <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
                     <Search className="w-5 h-5 text-indigo-400" />
                     A-Z List
                   </h2>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 p-4 rounded-2xl bg-white/5 border border-white/10">
                     {['All', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0-9', 'Other'].map((letter) => (
-                      <button
+                      <motion.button
                         key={letter}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => fetchViewList('az-list', `A-Z List: ${letter}`, 1, letter)}
-                        className={`${['All', 'Other'].includes(letter) ? 'px-4' : 'w-10'} h-10 flex items-center justify-center bg-white/5 hover:bg-indigo-500 hover:text-white text-white/70 rounded-lg text-sm font-bold transition-all border border-white/10 hover:border-indigo-400`}
+                        className={`relative ${['All', 'Other'].includes(letter) ? 'px-5' : 'w-10'} h-10 flex items-center justify-center bg-white/5 text-white/60 hover:text-white hover:bg-indigo-500 rounded-xl text-sm font-bold transition-colors`}
                       >
-                        {letter === 'Other' ? 'Other' : letter}
-                      </button>
+                        <span className="relative z-10">{letter === 'Other' ? 'Other' : letter}</span>
+                      </motion.button>
                     ))}
                   </div>
                 </section>
