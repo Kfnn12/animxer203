@@ -60,8 +60,19 @@ app.get('/api/search', async (req, res) => {
     try {
         const keyword = req.query.keyword || '';
         const page = req.query.page || 1;
+        const genres = req.query.genres ? (req.query.genres as string).split(',') : [];
+        const types = req.query.types ? (req.query.types as string).split(',') : [];
+        
+        const params: Record<string, any> = { keyword, page };
+        if (genres.length > 0) {
+            params['genre[]'] = genres;
+        }
+        if (types.length > 0) {
+            params['term_type[]'] = types;
+        }
+
         const response = await fetchWithFallback(`${BASE_URL}/filter`, {
-            params: { keyword, page },
+            params,
             headers
         });
 
@@ -154,33 +165,6 @@ app.get('/api/recent', async (req, res) => {
 });
 
 // Lists API (for homepage sections)
-const scheduleCache: Record<string, { data: any, timestamp: number }> = {};
-
-app.get('/api/schedule', async (req, res) => {
-    try {
-        const d = new Date();
-        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        const currentDay = req.query.day as string || days[d.getDay()];
-        
-        const now = Date.now();
-        if (scheduleCache[currentDay] && (now - scheduleCache[currentDay].timestamp < 60 * 60 * 1000)) {
-            return res.json(scheduleCache[currentDay].data);
-        }
-
-        const response = await fetchWithFallback(`https://api.jikan.moe/v4/schedules?filter=${currentDay}`);
-        
-        scheduleCache[currentDay] = {
-            data: response.data,
-            timestamp: now
-        };
-        
-        res.json(response.data);
-    } catch (error) {
-        console.error("Jikan schedule error:", error);
-        res.json({ data: [] });
-    }
-});
-
 app.get('/api/lists', async (req, res) => {
     try {
         const type = req.query.type as string;

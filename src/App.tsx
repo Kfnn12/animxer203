@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Play, Info, Calendar } from "lucide-react";
+import { Search, Play, Info, Calendar, Filter, X, ChevronDown, Check } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Comments from "./components/Comments";
 
@@ -27,6 +27,9 @@ const genresList = [
 
 export default function App() {
   const [query, setQuery] = useState("");
+  const [searchGenres, setSearchGenres] = useState<string[]>([]);
+  const [searchTypes, setSearchTypes] = useState<string[]>([]);
+  const [isSearchFiltersOpen, setIsSearchFiltersOpen] = useState(false);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [newReleases, setNewReleases] = useState([]);
@@ -124,7 +127,10 @@ export default function App() {
       
     setScheduleLoading(true);
     setScheduleError(false);
-    fetch("/api/schedule")
+    const d = new Date();
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const currentDay = days[d.getDay()];
+    fetch(`https://api.jikan.moe/v4/schedules?filter=${currentDay}`)
       .then((res) => {
           if (!res.ok) throw new Error("Failed to fetch schedule");
           return res.json();
@@ -132,9 +138,7 @@ export default function App() {
       .then((data) => {
          if (data.data) {
              setWeeklySchedule(data.data);
-             const d = new Date();
-             const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-             setScheduleDay(days[d.getDay()]);
+             setScheduleDay(currentDay);
          }
       })
       .catch((e) => {
@@ -150,8 +154,14 @@ export default function App() {
     e.preventDefault();
     if (!query) return;
     setLoading(true);
+    setIsSearchFiltersOpen(false);
     try {
-      const res = await fetch(`/api/search?keyword=${encodeURIComponent(query)}`);
+      const qParams = new URLSearchParams();
+      qParams.append('keyword', query);
+      if (searchGenres.length > 0) qParams.append('genres', searchGenres.join(','));
+      if (searchTypes.length > 0) qParams.append('types', searchTypes.join(','));
+      
+      const res = await fetch(`/api/search?${qParams.toString()}`);
       const data = await res.json();
       setResults(data.results || []);
     } catch (err) {
@@ -166,7 +176,7 @@ export default function App() {
     setScheduleLoading(true);
     setScheduleError(false);
     try {
-        const res = await fetch(`/api/schedule?day=${day}`);
+        const res = await fetch(`https://api.jikan.moe/v4/schedules?filter=${day}`);
         if (!res.ok) throw new Error("Failed to fetch schedule");
         const data = await res.json();
         if (data.data) {
@@ -300,17 +310,114 @@ export default function App() {
               </button>
             </nav>
           </div>
-          <form onSubmit={searchAnime} className="relative w-full max-w-md">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search anime..."
-              className="w-full bg-white/5 border border-white/10 rounded-full py-2 px-10 text-sm focus:outline-none focus:border-white/30 focus:bg-white/10 transition-colors backdrop-blur-md placeholder:text-gray-400"
-            />
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-            <button type="submit" className="hidden" />
-          </form>
+          <div className="relative w-full max-w-md flex flex-col items-end">
+            <div className="flex w-full items-center gap-2">
+              <form onSubmit={searchAnime} className="relative w-full">
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search anime..."
+                  className="w-full bg-white/5 border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-white/30 focus:bg-white/10 transition-colors backdrop-blur-md placeholder:text-gray-400"
+                />
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                <button type="submit" className="hidden" />
+              </form>
+              <button
+                onClick={() => setIsSearchFiltersOpen(!isSearchFiltersOpen)}
+                className={`flex-none p-2 rounded-full border transition-colors ${
+                  isSearchFiltersOpen || searchGenres.length > 0 || searchTypes.length > 0
+                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+                    : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <AnimatePresence>
+              {isSearchFiltersOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-12 right-0 w-[400px] max-w-[calc(100vw-2rem)] bg-zinc-900 border border-white/10 rounded-2xl shadow-xl shadow-black/50 p-4 z-50 overflow-hidden"
+                >
+                  <div className="max-h-[60vh] overflow-y-auto scrollbar-hide">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold">Search Filters</h3>
+                      <button onClick={() => setIsSearchFiltersOpen(false)} className="p-1 hover:bg-white/10 rounded-full">
+                         <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-gray-400 mb-2">Type</h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {typesList.map((type) => {
+                          const isActive = searchTypes.includes(type.id);
+                          return (
+                            <button
+                              key={type.id}
+                              type="button"
+                              onClick={() => {
+                                if (isActive) setSearchTypes(searchTypes.filter(t => t !== type.id));
+                                else setSearchTypes([...searchTypes, type.id]);
+                              }}
+                              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                                isActive ? 'bg-emerald-500 text-zinc-900' : 'bg-white/5 text-gray-300 hover:bg-white/10'
+                              }`}
+                            >
+                              {type.title}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-400 mb-2">Genres</h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {genresList.map((genre) => {
+                          const isActive = searchGenres.includes(genre.filterId);
+                          return (
+                            <button
+                              key={genre.id}
+                              type="button"
+                              onClick={() => {
+                                if (isActive) setSearchGenres(searchGenres.filter(g => g !== genre.filterId));
+                                else setSearchGenres([...searchGenres, genre.filterId]);
+                              }}
+                              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                                isActive ? 'bg-emerald-500 text-zinc-900' : 'bg-white/5 text-gray-300 hover:bg-white/10'
+                              }`}
+                            >
+                              {genre.title}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 pt-4 border-t border-white/10 flex justify-between gap-2">
+                     <button
+                       className="text-xs text-gray-400 hover:text-white px-3 py-2"
+                       onClick={() => { setSearchGenres([]); setSearchTypes([]); }}
+                     >
+                        Clear Filters
+                     </button>
+                     <button
+                       className="bg-emerald-500 text-zinc-900 hover:bg-emerald-400 text-sm font-bold px-4 py-2 rounded-xl transition-colors"
+                       onClick={(e) => { searchAnime(e); }}
+                     >
+                        Apply & Search
+                     </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </header>
 
