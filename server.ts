@@ -18,22 +18,39 @@ const headers = {
 
 async function fetchWithFallback(url: string, config: any = {}) {
     try {
-        const timeoutConfig = { timeout: 4000, ...config };
-        const res = await axios.get(url, timeoutConfig);
+        const timeoutConfig = { method: config.method || 'GET', timeout: 2500, ...config, url };
+        const res = await axios(timeoutConfig);
         return res;
     } catch (e: any) {
         if (e.response && (e.response.status === 404 || e.response.status === 400)) {
             throw e;
         }
-        console.warn(`[Fallback] Primary req failed for ${url}, trying proxy...`);
-        try {
-            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
-            const res = await axios.get(proxyUrl, { timeout: 4000 });
-            return res;
-        } catch (proxyError: any) {
-            console.error(`[Fallback] Proxy also failed for ${url}`);
-            throw proxyError;
+        console.warn(`[Fallback] Primary req failed for ${url}, trying proxies...`);
+        const proxies = [
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+            `https://corsproxy.io/?${encodeURIComponent(url)}`,
+            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+        ];
+        
+        let lastError = e;
+        for (const proxyUrl of proxies) {
+             try {
+                 const res = await axios({ method: config.method || 'GET', timeout: 2500, ...config, url: proxyUrl });
+                 if (proxyUrl.includes('allorigins.win/get')) {
+                     if (res.data && res.data.contents) {
+                         res.data = res.data.contents;
+                         return res;
+                     }
+                 } else if (res.data) {
+                     return res;
+                 }
+             } catch (proxyError: any) {
+                 console.warn(`[Fallback] Proxy ${proxyUrl} failed`);
+                 lastError = proxyError;
+             }
         }
+        console.error(`[Fallback] All proxies failed for ${url}`);
+        throw lastError;
     }
 }
 
@@ -494,9 +511,8 @@ const proxyHandler = (basePath: string) => async (req: any, res: any) => {
 
         console.log(`[Proxy] ${req.method} ${url} (Referer: ${proxyReferer})`);
 
-        const response = await axios({
+        const response = await fetchWithFallback(url, {
             method: req.method,
-            url,
             data: Object.keys(req.body || {}).length > 0 ? req.body : undefined,
             headers: {
                 ...headers,
