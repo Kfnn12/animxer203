@@ -18,7 +18,8 @@ const headers = {
 
 async function fetchWithFallback(url: string, config: any = {}) {
     try {
-        const res = await axios.get(url, config);
+        const timeoutConfig = { timeout: 4000, ...config };
+        const res = await axios.get(url, timeoutConfig);
         return res;
     } catch (e: any) {
         if (e.response && (e.response.status === 404 || e.response.status === 400)) {
@@ -27,7 +28,7 @@ async function fetchWithFallback(url: string, config: any = {}) {
         console.warn(`[Fallback] Primary req failed for ${url}, trying proxy...`);
         try {
             const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
-            const res = await axios.get(proxyUrl);
+            const res = await axios.get(proxyUrl, { timeout: 4000 });
             return res;
         } catch (proxyError: any) {
             console.error(`[Fallback] Proxy also failed for ${url}`);
