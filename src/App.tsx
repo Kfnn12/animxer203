@@ -3,6 +3,11 @@ import { Search, Play, Info, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Comments from "./components/Comments";
 
+const typesList = [
+    { title: "Movie", id: "movie" }, { title: "TV", id: "tv" }, { title: "OVA", id: "ova" },
+    { title: "ONA", id: "ona" }, { title: "Special", id: "special" }, { title: "Music", id: "music" }
+];
+
 const genresList = [
     { title: "Action", id: "action" }, { title: "Adventure", id: "adventure" }, { title: "Cars", id: "cars" },
     { title: "Comedy", id: "comedy" }, { title: "Dementia", id: "dementia" }, { title: "Demons", id: "demons" },
@@ -38,13 +43,13 @@ export default function App() {
   const [servers, setServers] = useState([]);
   const [selectedServer, setSelectedServer] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
-  const [viewListMode, setViewListMode] = useState<{type: string, title: string, param?: string} | null>(null);
+  const [viewListMode, setViewListMode] = useState<{type: string, title: string, param?: any} | null>(null);
   const [staticPage, setStaticPage] = useState<string | null>(null);
   const [viewListResults, setViewListResults] = useState([]);
   const [viewListPage, setViewListPage] = useState(1);
   const [viewListLoading, setViewListLoading] = useState(false);
   
-  const fetchViewList = async (type: string, title: string, page = 1, param?: string) => {
+  const fetchViewList = async (type: string, title: string, page = 1, param?: any) => {
     setStaticPage(null);
     setSelectedAnime(null);
     setViewListMode({ type, title, param });
@@ -58,6 +63,12 @@ export default function App() {
       if (param) {
          if (type === 'az-list') route += `&letter=${encodeURIComponent(param)}`;
          else if (type === 'genre') route += `&genre=${encodeURIComponent(param)}`;
+         else if (type === 'filter') {
+            const queryParams = new URLSearchParams();
+            if (param.genres && param.genres.length > 0) queryParams.append('genres', param.genres.join(','));
+            if (param.types && param.types.length > 0) queryParams.append('types', param.types.join(','));
+            route += `&${queryParams.toString()}`;
+         }
       }
       const res = await fetch(route);
       const data = await res.json();
@@ -75,6 +86,9 @@ export default function App() {
     }
   };
 
+  const [filterGenres, setFilterGenres] = useState<string[]>([]);
+  const [filterTypes, setFilterTypes] = useState<string[]>([]);
+
   const [watchHistory, setWatchHistory] = useState<Record<string, any>>(() => {
     try {
       const stored = localStorage.getItem('animeWatchHistory');
@@ -84,6 +98,10 @@ export default function App() {
     }
   });
   const [jumpToEp, setJumpToEp] = useState('');
+
+  const handleAdvancedFilter = () => {
+    fetchViewList('filter', 'Advanced Filter Results', 1, { genres: filterGenres, types: filterTypes });
+  };
 
   useEffect(() => {
     fetch("/api/lists?type=new-release")
@@ -811,20 +829,68 @@ export default function App() {
                 <section>
                   <h2 className="text-xl font-bold mb-6 flex items-center gap-2 mt-12">
                     <Search className="w-5 h-5 text-emerald-400" />
-                    Browse by Genre
+                    Advanced Filter
                   </h2>
-                  <div className="flex flex-wrap gap-2 p-4 rounded-2xl bg-white/5 border border-white/10">
-                    {genresList.map((genre) => (
-                      <motion.button
-                        key={genre.id}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => fetchViewList('genre', `Genre: ${genre.title}`, 1, genre.id)}
-                        className={`relative px-4 h-10 flex items-center justify-center bg-white/5 text-white/60 hover:text-white hover:bg-emerald-500 rounded-xl text-sm font-bold transition-colors`}
-                      >
-                        <span className="relative z-10">{genre.title}</span>
-                      </motion.button>
-                    ))}
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                    <div className="mb-6">
+                      <h3 className="text-white font-medium mb-3">Genres</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {genresList.map((genre) => {
+                          const isActive = filterGenres.includes(genre.id);
+                          return (
+                          <motion.button
+                            key={genre.id}
+                            onClick={() => {
+                              if (isActive) {
+                                setFilterGenres(filterGenres.filter(g => g !== genre.id));
+                              } else {
+                                setFilterGenres([...filterGenres, genre.id]);
+                              }
+                            }}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className={`relative px-4 h-9 flex items-center justify-center rounded-lg text-sm font-bold transition-colors ${isActive ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'}`}
+                          >
+                            <span className="relative z-10">{genre.title}</span>
+                          </motion.button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="mb-6">
+                      <h3 className="text-white font-medium mb-3">Types</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {typesList.map((type) => {
+                          const isActive = filterTypes.includes(type.id);
+                          return (
+                          <motion.button
+                            key={type.id}
+                            onClick={() => {
+                              if (isActive) {
+                                setFilterTypes(filterTypes.filter(t => t !== type.id));
+                              } else {
+                                setFilterTypes([...filterTypes, type.id]);
+                              }
+                            }}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className={`relative px-4 h-9 flex items-center justify-center rounded-lg text-sm font-bold transition-colors ${isActive ? 'bg-blue-500 text-white' : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'}`}
+                          >
+                            <span className="relative z-10">{type.title}</span>
+                          </motion.button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex justify-end mt-4">
+                       <button
+                         onClick={handleAdvancedFilter}
+                         disabled={filterGenres.length === 0 && filterTypes.length === 0}
+                         className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-600 disabled:text-gray-400 text-black px-6 py-2 rounded-xl font-bold transition-colors"
+                       >
+                         <Search className="w-4 h-4" /> Filter Anime
+                       </button>
+                    </div>
                   </div>
                 </section>
               </div>

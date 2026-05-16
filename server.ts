@@ -29,6 +29,8 @@ app.get('/api/search', async (req, res) => {
         const $ = cheerio.load(response.data);
         const results = [];
 
+        const keywordLower = (typeof keyword === 'string' ? keyword : '').toLowerCase();
+
         $('.list-items .item, #list-items .item').each((i, el) => {
             const titleElement = $(el).find('.name, .d-title');
             const url = titleElement.attr('href');
@@ -36,17 +38,40 @@ app.get('/api/search', async (req, res) => {
             if (url && url.includes('/watch/')) {
                 id = url.split('/watch/')[1];
             } else if (url) {
-                id = url.split('/').pop();
+                id = url.split('/').pop() || '';
             }
+            
+            const title = titleElement.text().trim();
+            const jName = titleElement.attr('data-jname') || $(el).attr('data-jname') || '';
+            
+            // Generate a score to prioritize exact matches and startsWith
+            let score = 0;
+            const tLower = title.toLowerCase();
+            const jLower = jName.toLowerCase();
+            const idLower = id.toLowerCase();
+            
+            if (tLower === keywordLower || jLower === keywordLower || idLower === keywordLower) {
+                score = 100;
+            } else if (tLower.startsWith(keywordLower) || jLower.startsWith(keywordLower)) {
+                score = 50;
+            } else if (tLower.includes(keywordLower) || jLower.includes(keywordLower)) {
+                score = 10;
+            }
+
             results.push({
-                title: titleElement.text().trim(),
-                url: url,
-                id: id,
+                title,
+                url,
+                id,
+                jName,
+                score,
                 image: $(el).find('img').attr('src'),
                 rating: $(el).find('.score').text().trim(),
                 type: $(el).find('.right').text().trim() || $(el).find('.dot').eq(1).text().trim()
             });
         });
+
+        // Sort by score descending
+        results.sort((a, b) => b.score - a.score);
 
         res.json({ results });
     } catch (error) {
@@ -139,6 +164,20 @@ app.get('/api/lists', async (req, res) => {
         } else if (type === 'genre') {
             const genre = req.query.genre as string;
             url = `${BASE_URL}/genre/${genre}`;
+        } else if (type === 'filter') {
+            const genres = req.query.genres as string;
+            const animeTypes = req.query.types as string; // avoid conflict with outer type
+            
+            let params = [];
+            if (genres) {
+                genres.split(',').forEach(g => params.push(`genre[]=${g}`));
+            }
+            if (animeTypes) {
+                animeTypes.split(',').forEach(t => params.push(`type[]=${t}`));
+            }
+            if (params.length > 0) {
+                 url += '?' + params.join('&');
+            }
         }
         
         if (url.includes('?')) {
