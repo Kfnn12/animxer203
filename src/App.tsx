@@ -4,25 +4,25 @@ import { motion, AnimatePresence } from "motion/react";
 import Comments from "./components/Comments";
 
 const typesList = [
-    { title: "Movie", id: "movie" }, { title: "TV", id: "tv" }, { title: "OVA", id: "ova" },
-    { title: "ONA", id: "ona" }, { title: "Special", id: "special" }, { title: "Music", id: "music" }
+    { title: "Movie", id: "Movie" }, { title: "TV", id: "TV" }, { title: "OVA", id: "OVA" },
+    { title: "ONA", id: "ONA" }, { title: "Special", id: "Special" }, { title: "Music", id: "Music" }
 ];
 
 const genresList = [
-    { title: "Action", id: "action" }, { title: "Adventure", id: "adventure" }, { title: "Cars", id: "cars" },
-    { title: "Comedy", id: "comedy" }, { title: "Dementia", id: "dementia" }, { title: "Demons", id: "demons" },
-    { title: "Drama", id: "drama" }, { title: "Ecchi", id: "ecchi" }, { title: "Fantasy", id: "fantasy" },
-    { title: "Game", id: "game" }, { title: "Harem", id: "harem" }, { title: "Historical", id: "historical" },
-    { title: "Horror", id: "horror" }, { title: "Isekai", id: "isekai" }, { title: "Josei", id: "josei" },
-    { title: "Kids", id: "kids" }, { title: "Magic", id: "magic" }, { title: "Martial Arts", id: "martial-arts" },
-    { title: "Mecha", id: "mecha" }, { title: "Military", id: "military" }, { title: "Music", id: "music" },
-    { title: "Mystery", id: "mystery" }, { title: "Parody", id: "parody" }, { title: "Police", id: "police" },
-    { title: "Psychological", id: "psychological" }, { title: "Romance", id: "romance" }, { title: "Samurai", id: "samurai" },
-    { title: "School", id: "school" }, { title: "Sci-Fi", id: "sci-fi" }, { title: "Seinen", id: "seinen" },
-    { title: "Shoujo", id: "shoujo" }, { title: "Shoujo Ai", id: "shoujo-ai" }, { title: "Shounen", id: "shounen" },
-    { title: "Shounen Ai", id: "shounen-ai" }, { title: "Slice of Life", id: "slice-of-life" }, { title: "Space", id: "space" },
-    { title: "Sports", id: "sports" }, { title: "Super Power", id: "super-power" }, { title: "Supernatural", id: "supernatural" },
-    { title: "Thriller", id: "thriller" }, { title: "Vampire", id: "vampire" }
+    { title: "Action", id: "action", filterId: "1" }, { title: "Adventure", id: "adventure", filterId: "2" }, { title: "Cars", id: "cars", filterId: "538" },
+    { title: "Comedy", id: "comedy", filterId: "8" }, { title: "Dementia", id: "dementia", filterId: "453" }, { title: "Demons", id: "demons", filterId: "119" },
+    { title: "Drama", id: "drama", filterId: "62" }, { title: "Ecchi", id: "ecchi", filterId: "214" }, { title: "Fantasy", id: "fantasy", filterId: "3" },
+    { title: "Game", id: "game", filterId: "180" }, { title: "Harem", id: "harem", filterId: "215" }, { title: "Historical", id: "historical", filterId: "70" },
+    { title: "Horror", id: "horror", filterId: "222" }, { title: "Isekai", id: "isekai", filterId: "74" }, { title: "Josei", id: "josei", filterId: "404" },
+    { title: "Kids", id: "kids", filterId: "46" }, { title: "Magic", id: "magic", filterId: "203" }, { title: "Martial Arts", id: "martial-arts", filterId: "114" },
+    { title: "Mecha", id: "mecha", filterId: "123" }, { title: "Military", id: "military", filterId: "125" }, { title: "Music", id: "music", filterId: "242" },
+    { title: "Mystery", id: "mystery", filterId: "57" }, { title: "Parody", id: "parody", filterId: "162" }, { title: "Police", id: "police", filterId: "136" },
+    { title: "Psychological", id: "psychological", filterId: "73" }, { title: "Romance", id: "romance", filterId: "28" }, { title: "Samurai", id: "samurai", filterId: "163" },
+    { title: "School", id: "school", filterId: "14" }, { title: "Sci-Fi", id: "sci-fi", filterId: "12" }, { title: "Seinen", id: "seinen", filterId: "50" },
+    { title: "Shoujo", id: "shoujo", filterId: "252" }, { title: "Shoujo Ai", id: "shoujo-ai", filterId: "235" }, { title: "Shounen", id: "shounen", filterId: "15" },
+    { title: "Shounen Ai", id: "shounen-ai", filterId: "233" }, { title: "Slice of Life", id: "slice-of-life", filterId: "35" }, { title: "Space", id: "space", filterId: "124" },
+    { title: "Sports", id: "sports", filterId: "29" }, { title: "Super Power", id: "super-power", filterId: "16" }, { title: "Supernatural", id: "supernatural", filterId: "9" },
+    { title: "Thriller", id: "thriller", filterId: "54" }, { title: "Vampire", id: "vampire", filterId: "58" }
 ];
 
 export default function App() {
@@ -829,22 +829,22 @@ export default function App() {
                 <section>
                   <h2 className="text-xl font-bold mb-6 flex items-center gap-2 mt-12">
                     <Search className="w-5 h-5 text-emerald-400" />
-                    Advanced Filter
+                    Browse by Genre
                   </h2>
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
                     <div className="mb-6">
                       <h3 className="text-white font-medium mb-3">Genres</h3>
                       <div className="flex flex-wrap gap-2">
                         {genresList.map((genre) => {
-                          const isActive = filterGenres.includes(genre.id);
+                          const isActive = filterGenres.includes(genre.filterId);
                           return (
                           <motion.button
                             key={genre.id}
                             onClick={() => {
                               if (isActive) {
-                                setFilterGenres(filterGenres.filter(g => g !== genre.id));
+                                setFilterGenres(filterGenres.filter(g => g !== genre.filterId));
                               } else {
-                                setFilterGenres([...filterGenres, genre.id]);
+                                setFilterGenres([...filterGenres, genre.filterId]);
                               }
                             }}
                             whileHover={{ scale: 1.05 }}

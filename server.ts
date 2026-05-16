@@ -173,7 +173,7 @@ app.get('/api/lists', async (req, res) => {
                 genres.split(',').forEach(g => params.push(`genre[]=${g}`));
             }
             if (animeTypes) {
-                animeTypes.split(',').forEach(t => params.push(`type[]=${t}`));
+                animeTypes.split(',').forEach(t => params.push(`term_type[]=${t}`));
             }
             if (params.length > 0) {
                  url += '?' + params.join('&');
