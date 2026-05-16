@@ -22,6 +22,17 @@ const headers = {
 };
 
 async function fetchWithFallback(url: string, config: any = {}) {
+    const proxies = [
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+    ];
+
+    if (process.env.VERCEL) {
+        // Vercel is almost always blocked by Cloudflare, skip primary request
+        console.log(`[Vercel] Skipping primary request, using proxy for ${url}`);
+        return tryProxies(proxies, config);
+    }
+
     try {
         const timeoutConfig = { method: config.method || 'GET', timeout: 5000, ...config, url };
         const res = await axios(timeoutConfig);
@@ -34,32 +45,29 @@ async function fetchWithFallback(url: string, config: any = {}) {
             throw e;
         }
         console.warn(`[Fallback] Primary req failed for ${url}, trying proxies...`);
-        const proxies = [
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
-        ];
-        
-        let lastError = e;
-        for (const proxyUrl of proxies) {
-             try {
-                 const res = await axios({ method: config.method || 'GET', timeout: 4000, ...config, url: proxyUrl });
-                 if (res.status === 403 || res.status === 503 || res.status === 502) {
-                     throw new Error(`Proxy blocked with status ${res.status}`);
-                 }
-                 if (res.data) {
-                     if (proxyUrl.includes('allorigins.win') && res.data.contents) {
-                         res.data = res.data.contents;
-                     }
-                     return res;
-                 }
-             } catch (proxyError: any) {
-                 console.warn(`[Fallback] Proxy ${proxyUrl} failed`);
-                 lastError = proxyError;
-             }
-        }
-        console.error(`[Fallback] All proxies failed for ${url}`);
-        throw lastError;
+        return tryProxies(proxies, config);
     }
+}
+
+async function tryProxies(proxies: string[], config: any) {
+    let lastError = new Error('No proxies available');
+    for (const proxyUrl of proxies) {
+         try {
+             // Use 8000ms timeout for proxies on Vercel to give them enough time
+             const res = await axios({ method: config.method || 'GET', timeout: 8000, ...config, url: proxyUrl });
+             if (res.status === 403 || res.status === 503 || res.status === 502) {
+                 throw new Error(`Proxy blocked with status ${res.status}`);
+             }
+             if (res.data) {
+                 return res;
+             }
+         } catch (proxyError: any) {
+             console.warn(`[Fallback] Proxy ${proxyUrl} failed`);
+             lastError = proxyError;
+         }
+    }
+    console.error(`[Fallback] All proxies failed`);
+    throw lastError;
 }
 
 // Search & Filter API
@@ -547,6 +555,9 @@ const proxyHandler = (basePath: string) => async (req: any, res: any) => {
         delete response.headers['content-encoding'];
         delete response.headers['content-length'];
         delete response.headers['transfer-encoding'];
+        delete response.headers['access-control-allow-origin'];
+        delete response.headers['access-control-allow-methods'];
+        delete response.headers['access-control-allow-headers'];
         Object.keys(response.headers).forEach(key => res.setHeader(key, response.headers[key]));
         res.send(response.data);
     } catch (e) {
