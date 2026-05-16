@@ -16,12 +16,32 @@ const headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
 };
 
+async function fetchWithFallback(url: string, config: any = {}) {
+    try {
+        const res = await axios.get(url, config);
+        return res;
+    } catch (e: any) {
+        if (e.response && (e.response.status === 404 || e.response.status === 400)) {
+            throw e;
+        }
+        console.warn(`[Fallback] Primary req failed for ${url}, trying proxy...`);
+        try {
+            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
+            const res = await axios.get(proxyUrl);
+            return res;
+        } catch (proxyError: any) {
+            console.error(`[Fallback] Proxy also failed for ${url}`);
+            throw proxyError;
+        }
+    }
+}
+
 // Search & Filter API
 app.get('/api/search', async (req, res) => {
     try {
         const keyword = req.query.keyword || '';
         const page = req.query.page || 1;
-        const response = await axios.get(`${BASE_URL}/filter`, {
+        const response = await fetchWithFallback(`${BASE_URL}/filter`, {
             params: { keyword, page },
             headers
         });
@@ -83,7 +103,7 @@ app.get('/api/search', async (req, res) => {
 // Recent/Trending API (using filter landing page)
 app.get('/api/recent', async (req, res) => {
     try {
-        const response = await axios.get(`${BASE_URL}/filter`, { headers });
+        const response = await fetchWithFallback(`${BASE_URL}/filter`, { headers });
         const $ = cheerio.load(response.data);
         const results = [];
 
@@ -128,7 +148,7 @@ app.get('/api/schedule', async (req, res) => {
             return res.json(scheduleCache[currentDay].data);
         }
 
-        const response = await axios.get(`https://api.jikan.moe/v4/schedules?filter=${currentDay}`);
+        const response = await fetchWithFallback(`https://api.jikan.moe/v4/schedules?filter=${currentDay}`);
         
         scheduleCache[currentDay] = {
             data: response.data,
@@ -186,7 +206,7 @@ app.get('/api/lists', async (req, res) => {
             url += `?page=${page}`;
         }
 
-        const response = await axios.get(url, { headers });
+        const response = await fetchWithFallback(url, { headers });
         const $ = cheerio.load(response.data);
         const results: any[] = [];
 
@@ -230,7 +250,7 @@ app.get('/api/watch', async (req, res) => {
         if (!targetUrl || !targetUrl.startsWith(BASE_URL)) {
             return res.status(400).send('Invalid url');
         }
-        const response = await axios.get(targetUrl, {
+        const response = await fetchWithFallback(targetUrl, {
             headers,
             responseType: 'text',
             validateStatus: () => true
@@ -292,7 +312,7 @@ app.get('/api/info', async (req, res) => {
         }
 
         const url = `${BASE_URL}/watch/${id}`;
-        const response = await axios.get(url, { headers });
+        const response = await fetchWithFallback(url, { headers });
         const $ = cheerio.load(response.data);
 
         let baseId = id;
@@ -321,7 +341,7 @@ app.get('/api/info', async (req, res) => {
         
         if (watchDataId) {
             try {
-                const epRes = await axios.get(`${BASE_URL}/ajax/episode/list/${watchDataId}?vrf=`, {
+                const epRes = await fetchWithFallback(`${BASE_URL}/ajax/episode/list/${watchDataId}?vrf=`, {
                     headers: { 
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                         'X-Requested-With': 'XMLHttpRequest',
@@ -413,7 +433,7 @@ app.get('/api/servers', async (req, res) => {
         if (!epId) return res.status(400).json({ error: 'Missing epId' });
 
         const url = `${BASE_URL}/ajax/server/list?servers=${epId}`;
-        const response = await axios.get(url, { 
+        const response = await fetchWithFallback(url, { 
             headers: {
                 ...headers,
                 'X-Requested-With': 'XMLHttpRequest'
@@ -445,7 +465,7 @@ app.get('/api/server-url', async (req, res) => {
         if (!linkId) return res.status(400).json({ error: 'Missing linkId' });
 
         const url = `${BASE_URL}/ajax/server?get=${linkId}`;
-        const response = await axios.get(url, { 
+        const response = await fetchWithFallback(url, { 
             headers: {
                 ...headers,
                 'X-Requested-With': 'XMLHttpRequest'
@@ -482,7 +502,7 @@ const proxyHandler = (basePath: string) => async (req: any, res: any) => {
                 'Referer': proxyReferer,
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            responseType: 'stream',
+            responseType: 'arraybuffer',
             validateStatus: () => true
         });
         delete response.headers['content-security-policy'];
@@ -491,7 +511,7 @@ const proxyHandler = (basePath: string) => async (req: any, res: any) => {
         delete response.headers['content-length'];
         delete response.headers['transfer-encoding'];
         Object.keys(response.headers).forEach(key => res.setHeader(key, response.headers[key]));
-        response.data.pipe(res);
+        res.send(response.data);
     } catch (e) {
         res.status(500).end();
     }
