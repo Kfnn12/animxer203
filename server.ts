@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import axios from 'axios';
 import * as cheerio from 'cheerio';
 import path from 'path';
 
@@ -21,27 +20,64 @@ const headers = {
     'Sec-Fetch-Site': 'none'
 };
 
-async function fetchWithFallback(url: string, config: any = {}) {
-    const proxies = [
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-    ];
-
-    if (process.env.VERCEL) {
-        // Vercel is almost always blocked by Cloudflare, skip primary request
-        console.log(`[Vercel] Skipping primary request, using proxy for ${url}`);
-        return tryProxies(proxies, config);
+async function fetchWithFallback(urlInput: string, config: any = {}) {
+    let urlStr = urlInput;
+    if (config.params) {
+        const urlObj = new URL(urlStr);
+        for (const key in config.params) {
+            const val = config.params[key];
+            if (Array.isArray(val)) {
+                val.forEach(v => urlObj.searchParams.append(key, String(v)));
+            } else {
+                urlObj.searchParams.append(key, String(val));
+            }
+        }
+        urlStr = urlObj.toString();
     }
 
+    const proxies = [
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(urlStr)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(urlStr)}`
+    ];
+
     try {
-        const timeoutConfig = { method: config.method || 'GET', timeout: 5000, ...config, url };
-        const res = await axios(timeoutConfig);
+        const fetchOptions: RequestInit = {
+            method: config.method || 'GET',
+            headers: config.headers || headers,
+            signal: AbortSignal.timeout(config.timeout || 5000),
+            ...(config.data ? { body: typeof config.data === 'string' ? config.data : JSON.stringify(config.data) } : {})
+        };
+        
+        const res = await fetch(urlStr, fetchOptions);
+        
         if (res.status === 403 || res.status === 503 || res.status === 502) {
             throw new Error(`Primary request blocked with status ${res.status}`);
         }
-        return res;
+        
+        let responseData: any;
+        const contentType = res.headers.get('content-type');
+        if (config.responseType === 'arraybuffer') {
+            responseData = Buffer.from(await res.arrayBuffer());
+        } else if (contentType && contentType.includes('application/json')) {
+            responseData = await res.json();
+        } else {
+            responseData = await res.text();
+            // Sometimes json without content-type
+            try { responseData = JSON.parse(responseData); } catch(e) {}
+        }
+            
+        const responseHeaders: Record<string, string> = {};
+        res.headers.forEach((value, key) => {
+            responseHeaders[key] = value;
+        });
+
+        return {
+            status: res.status,
+            data: responseData,
+            headers: responseHeaders
+        };
     } catch (e: any) {
-        if (e.response && (e.response.status === 404 || e.response.status === 400)) {
+        if (e.message && e.message.includes('404')) {
             throw e;
         }
         console.warn(`[Fallback] Primary req failed for ${url}, trying proxies...`);
@@ -53,14 +89,40 @@ async function tryProxies(proxies: string[], config: any) {
     let lastError = new Error('No proxies available');
     for (const proxyUrl of proxies) {
          try {
-             // Use 8000ms timeout for proxies on Vercel to give them enough time
-             const res = await axios({ method: config.method || 'GET', timeout: 8000, ...config, url: proxyUrl });
+             const fetchOptions: RequestInit = {
+                 method: config.method || 'GET',
+                 headers: config.headers || headers,
+                 signal: AbortSignal.timeout(8000),
+                 ...(config.data ? { body: typeof config.data === 'string' ? config.data : JSON.stringify(config.data) } : {})
+             };
+
+             const res = await fetch(proxyUrl, fetchOptions);
+             
              if (res.status === 403 || res.status === 503 || res.status === 502) {
                  throw new Error(`Proxy blocked with status ${res.status}`);
              }
-             if (res.data) {
-                 return res;
+             
+             let responseData: any;
+             const contentType = res.headers.get('content-type');
+             if (config.responseType === 'arraybuffer') {
+                 responseData = Buffer.from(await res.arrayBuffer());
+             } else if (contentType && contentType.includes('application/json')) {
+                 responseData = await res.json();
+             } else {
+                 responseData = await res.text();
+                 try { responseData = JSON.parse(responseData); } catch(e) {}
              }
+             
+             const responseHeaders: Record<string, string> = {};
+             res.headers.forEach((value, key) => {
+                 responseHeaders[key] = value;
+             });
+
+             return {
+                 status: res.status,
+                 data: responseData,
+                 headers: responseHeaders
+             };
          } catch (proxyError: any) {
              console.warn(`[Fallback] Proxy ${proxyUrl} failed`);
              lastError = proxyError;
