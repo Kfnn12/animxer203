@@ -127,10 +127,7 @@ export default function App() {
       
     setScheduleLoading(true);
     setScheduleError(false);
-    const d = new Date();
-    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const currentDay = days[d.getDay()];
-    fetch(`https://api.jikan.moe/v4/schedules?filter=${currentDay}`)
+    fetch("/api/schedule")
       .then((res) => {
           if (!res.ok) throw new Error("Failed to fetch schedule");
           return res.json();
@@ -138,7 +135,9 @@ export default function App() {
       .then((data) => {
          if (data.data) {
              setWeeklySchedule(data.data);
-             setScheduleDay(currentDay);
+             const d = new Date();
+             const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+             setScheduleDay(days[d.getDay()]);
          }
       })
       .catch((e) => {
@@ -152,12 +151,12 @@ export default function App() {
 
   const searchAnime = async (e) => {
     e.preventDefault();
-    if (!query) return;
+    if (!query && searchGenres.length === 0 && searchTypes.length === 0) return;
     setLoading(true);
     setIsSearchFiltersOpen(false);
     try {
       const qParams = new URLSearchParams();
-      qParams.append('keyword', query);
+      if (query) qParams.append('keyword', query);
       if (searchGenres.length > 0) qParams.append('genres', searchGenres.join(','));
       if (searchTypes.length > 0) qParams.append('types', searchTypes.join(','));
       
@@ -176,7 +175,7 @@ export default function App() {
     setScheduleLoading(true);
     setScheduleError(false);
     try {
-        const res = await fetch(`https://api.jikan.moe/v4/schedules?filter=${day}`);
+        const res = await fetch(`/api/schedule?day=${day}`);
         if (!res.ok) throw new Error("Failed to fetch schedule");
         const data = await res.json();
         if (data.data) {

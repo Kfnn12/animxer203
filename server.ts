@@ -164,6 +164,34 @@ app.get('/api/recent', async (req, res) => {
     }
 });
 
+// Schedule API with caching
+const scheduleCache: Record<string, { data: any, timestamp: number }> = {};
+
+app.get('/api/schedule', async (req, res) => {
+    try {
+        const d = new Date();
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const currentDay = req.query.day as string || days[d.getDay()];
+        
+        const now = Date.now();
+        if (scheduleCache[currentDay] && (now - scheduleCache[currentDay].timestamp < 60 * 60 * 1000)) {
+            return res.json(scheduleCache[currentDay].data);
+        }
+
+        const response = await fetchWithFallback(`https://api.jikan.moe/v4/schedules?filter=${currentDay}`);
+        
+        scheduleCache[currentDay] = {
+            data: response.data,
+            timestamp: now
+        };
+        
+        res.json(response.data);
+    } catch (error) {
+        console.error("Jikan schedule error:", error);
+        res.json({ data: [] });
+    }
+});
+
 // Lists API (for homepage sections)
 app.get('/api/lists', async (req, res) => {
     try {
