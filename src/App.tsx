@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, Play, Info, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Comments from "./components/Comments";
@@ -951,7 +951,7 @@ function HeroSlider({ animeList, onSelect }) {
   );
 }
 
-function AnimeCard({ anime, onClick }) {
+const AnimeCard: React.FC<{ anime: any; onClick: any }> = ({ anime, onClick }) => {
   return (
     <motion.button
       whileHover={{ y: -4 }}
