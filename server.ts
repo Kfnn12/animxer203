@@ -18,8 +18,11 @@ const headers = {
 
 async function fetchWithFallback(url: string, config: any = {}) {
     try {
-        const timeoutConfig = { method: config.method || 'GET', timeout: 2500, ...config, url };
+        const timeoutConfig = { method: config.method || 'GET', timeout: 8000, ...config, url };
         const res = await axios(timeoutConfig);
+        if (res.status === 403 || res.status === 503 || res.status === 502) {
+            throw new Error(`Primary request blocked with status ${res.status}`);
+        }
         return res;
     } catch (e: any) {
         if (e.response && (e.response.status === 404 || e.response.status === 400)) {
@@ -29,19 +32,17 @@ async function fetchWithFallback(url: string, config: any = {}) {
         const proxies = [
             `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
             `https://corsproxy.io/?${encodeURIComponent(url)}`,
-            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+            `https://thingproxy.freeboard.io/fetch/${url}`
         ];
         
         let lastError = e;
         for (const proxyUrl of proxies) {
              try {
-                 const res = await axios({ method: config.method || 'GET', timeout: 2500, ...config, url: proxyUrl });
-                 if (proxyUrl.includes('allorigins.win/get')) {
-                     if (res.data && res.data.contents) {
-                         res.data = res.data.contents;
-                         return res;
-                     }
-                 } else if (res.data) {
+                 const res = await axios({ method: config.method || 'GET', timeout: 8000, ...config, url: proxyUrl });
+                 if (res.status === 403 || res.status === 503 || res.status === 502) {
+                     throw new Error(`Proxy blocked with status ${res.status}`);
+                 }
+                 if (res.data) {
                      return res;
                  }
              } catch (proxyError: any) {
