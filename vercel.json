@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/ajax/(.*)",
+      "destination": "/api/index.ts"
+    },
+    {
+      "source": "/AnikotoTheme/(.*)",
+      "destination": "/api/index.ts"
+    },
+    {
+      "source": "/images/(.*)",
+      "destination": "/api/index.ts"
+    },
+    {
+      "source": "/anikoto/(.*)",
+      "destination": "/api/index.ts"
+    },
+    {
+      "source": "/watch/(.*)",
+      "destination": "/api/index.ts"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.ts"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

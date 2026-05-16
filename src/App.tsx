@@ -271,11 +271,18 @@ export default function App() {
   return (
     <div className="min-h-screen text-white font-sans">
       <header className="border-b border-white/10 bg-black/40 backdrop-blur-xl sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-sm">
-            ANIMXER
-          </h1>
-          <form onSubmit={searchAnime} className="relative w-full max-w-md ml-4">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-6">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-sm cursor-pointer" onClick={() => { setSelectedAnime(null); setSelectedEpisode(null); setViewListMode(null); }}>
+              ANIMXER
+            </h1>
+            <nav className="hidden sm:flex items-center gap-4">
+              <button onClick={() => { setSelectedAnime(null); setSelectedEpisode(null); setViewListMode(null); }} className="text-sm font-medium hover:text-blue-400 transition-colors">
+                Home
+              </button>
+            </nav>
+          </div>
+          <form onSubmit={searchAnime} className="relative w-full max-w-md">
             <input
               type="text"
               value={query}

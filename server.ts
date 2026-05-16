@@ -5,6 +5,7 @@ import * as cheerio from 'cheerio';
 import path from 'path';
 
 const app = express();
+export default app;
 const PORT = 3000;
 const BASE_URL = 'https://anikototv.to';
 
@@ -463,11 +464,10 @@ app.use('/images', proxyHandler('/images'));
 app.use('/anikoto', proxyHandler('/anikoto'));
 app.use('/watch', proxyHandler('/watch'));
 
-import { createServer as createViteServer } from "vite";
-
 async function startServer() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -481,9 +481,13 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
