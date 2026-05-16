@@ -13,12 +13,17 @@ app.use(cors());
 
 // Custom user agent to prevent basic blocks
 const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none'
 };
 
 async function fetchWithFallback(url: string, config: any = {}) {
     try {
-        const timeoutConfig = { method: config.method || 'GET', timeout: 8000, ...config, url };
+        const timeoutConfig = { method: config.method || 'GET', timeout: 5000, ...config, url };
         const res = await axios(timeoutConfig);
         if (res.status === 403 || res.status === 503 || res.status === 502) {
             throw new Error(`Primary request blocked with status ${res.status}`);
@@ -31,18 +36,20 @@ async function fetchWithFallback(url: string, config: any = {}) {
         console.warn(`[Fallback] Primary req failed for ${url}, trying proxies...`);
         const proxies = [
             `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-            `https://corsproxy.io/?${encodeURIComponent(url)}`,
-            `https://thingproxy.freeboard.io/fetch/${url}`
+            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
         ];
         
         let lastError = e;
         for (const proxyUrl of proxies) {
              try {
-                 const res = await axios({ method: config.method || 'GET', timeout: 8000, ...config, url: proxyUrl });
+                 const res = await axios({ method: config.method || 'GET', timeout: 4000, ...config, url: proxyUrl });
                  if (res.status === 403 || res.status === 503 || res.status === 502) {
                      throw new Error(`Proxy blocked with status ${res.status}`);
                  }
                  if (res.data) {
+                     if (proxyUrl.includes('allorigins.win') && res.data.contents) {
+                         res.data = res.data.contents;
+                     }
                      return res;
                  }
              } catch (proxyError: any) {
