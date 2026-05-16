@@ -158,7 +158,7 @@ app.get('/api/schedule', async (req, res) => {
         res.json(response.data);
     } catch (error) {
         console.error("Jikan schedule error:", error);
-        res.status(500).json({ error: 'Failed to fetch schedule' });
+        res.json({ data: [] });
     }
 });
 

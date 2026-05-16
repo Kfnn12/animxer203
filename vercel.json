@@ -3,27 +3,27 @@
   "rewrites": [
     {
       "source": "/ajax/(.*)",
-      "destination": "/api/index"
+      "destination": "/api"
     },
     {
       "source": "/AnikotoTheme/(.*)",
-      "destination": "/api/index"
+      "destination": "/api"
     },
     {
       "source": "/images/(.*)",
-      "destination": "/api/index"
+      "destination": "/api"
     },
     {
       "source": "/anikoto/(.*)",
-      "destination": "/api/index"
+      "destination": "/api"
     },
     {
       "source": "/watch/(.*)",
-      "destination": "/api/index"
+      "destination": "/api"
     },
     {
       "source": "/api/(.*)",
-      "destination": "/api/index"
+      "destination": "/api"
     },
     {
       "source": "/((?!assets/|api/|ajax/|AnikotoTheme/|images/|anikoto/|watch/|vite\\.svg|favicon\\.ico).*)",
